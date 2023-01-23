@@ -14,3 +14,6 @@ out/
 # Coverage files
 lcov.info
 report/
+
+# Docs
+docs/
