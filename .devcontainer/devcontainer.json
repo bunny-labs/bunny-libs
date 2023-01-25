@@ -1,0 +1,11 @@
+{
+  "name": "Forge",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["JuanBlanco.solidity", "esbenp.prettier-vscode"]
+    }
+  }
+}
