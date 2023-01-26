@@ -2,7 +2,7 @@
 pragma solidity ^0.8.16;
 
 import "forge-std/Test.sol";
-import "@openzeppelin/proxy/Clones.sol";
+import "openzeppelin-contracts/proxy/Clones.sol";
 
 import {Clonable} from "../src/Clonable/Clonable.sol";
 

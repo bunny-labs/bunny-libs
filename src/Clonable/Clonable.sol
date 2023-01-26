@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.16;
 
-import "@openzeppelin/proxy/Clones.sol";
-import "@openzeppelin/proxy/utils/Initializable.sol";
+import "openzeppelin-contracts/proxy/Clones.sol";
+import "openzeppelin-contracts/proxy/utils/Initializable.sol";
 
 /**
  * @title Clonable.sol
