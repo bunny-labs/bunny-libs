@@ -18,16 +18,15 @@ contract ClonableTest is Test {
     bytes32 defaultData = "";
     bytes defaultInitdata;
     uint256 defaultFeeBps = 100;
+    Clonable.CloningConfig defaultCloningConfig;
 
     function setUp() public {
         defaultInitdata = abi.encode(defaultNumber, defaultData);
+        defaultCloningConfig =
+            Clonable.CloningConfig({author: authorAddress, feeBps: defaultFeeBps, feeRecipient: feeRecipientAddress});
 
         vm.prank(authorAddress);
-        original = new ClonableContract(
-            defaultNumber,
-            defaultData,
-            defaultFeeBps
-        );
+        original = new ClonableContract(defaultNumber, defaultData, defaultCloningConfig);
     }
 
     /////////////////////////////////
@@ -35,31 +34,37 @@ contract ClonableTest is Test {
     /////////////////////////////////
 
     function testCanBeDeployed() public {
-        original = new ClonableContract(defaultNumber, defaultData, defaultFeeBps);
+        original = new ClonableContract(defaultNumber, defaultData, defaultCloningConfig);
     }
 
     function testCannotBeDeployedWithInvalidFeeBps() public {
         uint256 feeBasis = original.CLONING_FEE_BASIS();
+        Clonable.CloningConfig memory cloningConfig =
+            Clonable.CloningConfig({author: authorAddress, feeBps: feeBasis + 1, feeRecipient: feeRecipientAddress});
 
         vm.expectRevert(Clonable.FeeBpsTooHigh.selector);
-        original = new ClonableContract(defaultNumber, defaultData, feeBasis + 1);
+        original = new ClonableContract(defaultNumber, defaultData, cloningConfig);
     }
 
-    function testInitializesClonable(uint8 feeBps) public {
+    function testInitializesClonable(address author, uint8 feeBps, address feeRecipient) public {
         vm.prank(authorAddress);
-        original = new ClonableContract(defaultNumber, defaultData, feeBps);
+        original = new ClonableContract(defaultNumber, defaultData, Clonable.CloningConfig({
+            author: author,
+            feeBps: feeBps,
+            feeRecipient: feeRecipient
+        }));
 
         assertEq(original.CLONABLE_ABI_VERSION(), 0);
         assertEq(original.isClone(), false);
 
         assertEq(original.cloningConfig().feeBps, feeBps);
-        assertEq(original.cloningConfig().author, authorAddress);
-        assertEq(original.cloningConfig().feeRecipient, authorAddress);
+        assertEq(original.cloningConfig().author, author);
+        assertEq(original.cloningConfig().feeRecipient, feeRecipient);
     }
 
     function testInitializesChildContract(uint256 someNumber, bytes32 someData) public {
         vm.assume(someNumber > 10);
-        original = new ClonableContract(someNumber, someData, defaultFeeBps);
+        original = new ClonableContract(someNumber, someData, defaultCloningConfig);
 
         assertEq(original.someNumber(), someNumber);
         assertEq(original.someData(), someData);
@@ -91,7 +96,9 @@ contract ClonableTest is Test {
 
     function testCanUpdateCloningConfig(uint8 feeBps, address author, address feeRecipient) public {
         vm.prank(authorAddress);
-        original.updateCloningConfig(Clonable.Config({author: author, feeBps: feeBps, feeRecipient: feeRecipient}));
+        original.updateCloningConfig(
+            Clonable.CloningConfig({author: author, feeBps: feeBps, feeRecipient: feeRecipient})
+        );
 
         assertEq(original.cloningConfig().feeBps, feeBps);
         assertEq(original.cloningConfig().author, author);
@@ -109,7 +116,9 @@ contract ClonableTest is Test {
         ClonableContract child = ClonableContract(original.clone(defaultInitdata));
 
         vm.prank(authorAddress);
-        original.updateCloningConfig(Clonable.Config({author: author, feeBps: feeBps, feeRecipient: feeRecipient}));
+        original.updateCloningConfig(
+            Clonable.CloningConfig({author: author, feeBps: feeBps, feeRecipient: feeRecipient})
+        );
 
         assertEq(child.cloningConfig().feeBps, original.cloningConfig().feeBps);
         assertEq(child.cloningConfig().author, original.cloningConfig().author);
@@ -122,7 +131,7 @@ contract ClonableTest is Test {
         vm.expectRevert(Clonable.NotCallableOnClones.selector);
         vm.prank(authorAddress);
         child.updateCloningConfig(
-            Clonable.Config({author: authorAddress, feeBps: 0, feeRecipient: feeRecipientAddress})
+            Clonable.CloningConfig({author: authorAddress, feeBps: 0, feeRecipient: feeRecipientAddress})
         );
     }
 
@@ -131,7 +140,7 @@ contract ClonableTest is Test {
 
         vm.expectRevert(Clonable.AuthorOnly.selector);
         vm.prank(notAuthor);
-        original.updateCloningConfig(Clonable.Config({author: notAuthor, feeBps: 0, feeRecipient: notAuthor}));
+        original.updateCloningConfig(Clonable.CloningConfig({author: notAuthor, feeBps: 0, feeRecipient: notAuthor}));
     }
 
     function testCannotUpdateCloningConfigWithInvalidBps() public {
@@ -140,7 +149,7 @@ contract ClonableTest is Test {
         vm.expectRevert(Clonable.FeeBpsTooHigh.selector);
         vm.prank(authorAddress);
         original.updateCloningConfig(
-            Clonable.Config({author: authorAddress, feeBps: feeBasis + 1, feeRecipient: feeRecipientAddress})
+            Clonable.CloningConfig({author: authorAddress, feeBps: feeBasis + 1, feeRecipient: feeRecipientAddress})
         );
     }
 
@@ -232,7 +241,7 @@ contract ClonableTest is Test {
 
         vm.prank(authorAddress);
         original.updateCloningConfig(
-            Clonable.Config({author: authorAddress, feeBps: feeBps, feeRecipient: feeRecipientAddress})
+            Clonable.CloningConfig({author: authorAddress, feeBps: feeBps, feeRecipient: feeRecipientAddress})
         );
 
         uint256 basefee = _setGasPrice(gasPrice);
@@ -252,7 +261,7 @@ contract ClonableTest is Test {
 
         vm.prank(authorAddress);
         original.updateCloningConfig(
-            Clonable.Config({author: authorAddress, feeBps: feeBps, feeRecipient: feeRecipientAddress})
+            Clonable.CloningConfig({author: authorAddress, feeBps: feeBps, feeRecipient: feeRecipientAddress})
         );
         ClonableContract child = ClonableContract(original.clone(defaultInitdata));
 
@@ -273,7 +282,7 @@ contract ClonableTest is Test {
 
         vm.prank(authorAddress);
         original.updateCloningConfig(
-            Clonable.Config({author: authorAddress, feeBps: feeBps, feeRecipient: feeRecipientAddress})
+            Clonable.CloningConfig({author: authorAddress, feeBps: feeBps, feeRecipient: feeRecipientAddress})
         );
 
         uint256 basefee = _setGasPrice(gasPrice);
@@ -288,7 +297,7 @@ contract ClonableTest is Test {
     function testCloningOriginalRefundsExcessivePayment(uint8 gasPrice, uint8 feeBps, uint128 extraFunds) public {
         vm.prank(authorAddress);
         original.updateCloningConfig(
-            Clonable.Config({author: authorAddress, feeBps: feeBps, feeRecipient: feeRecipientAddress})
+            Clonable.CloningConfig({author: authorAddress, feeBps: feeBps, feeRecipient: feeRecipientAddress})
         );
 
         uint256 basefee = _setGasPrice(gasPrice);
@@ -304,7 +313,7 @@ contract ClonableTest is Test {
     function testCloningCloneRefundsExcessivePayment(uint8 gasPrice, uint8 feeBps, uint128 extraFunds) public {
         vm.prank(authorAddress);
         original.updateCloningConfig(
-            Clonable.Config({author: authorAddress, feeBps: feeBps, feeRecipient: feeRecipientAddress})
+            Clonable.CloningConfig({author: authorAddress, feeBps: feeBps, feeRecipient: feeRecipientAddress})
         );
         ClonableContract child = ClonableContract(original.clone(defaultInitdata));
 
@@ -332,7 +341,7 @@ contract ClonableTest is Test {
 
         vm.prank(authorAddress);
         original.updateCloningConfig(
-            Clonable.Config({author: authorAddress, feeBps: defaultFeeBps, feeRecipient: unpayableAddress})
+            Clonable.CloningConfig({author: authorAddress, feeBps: defaultFeeBps, feeRecipient: unpayableAddress})
         );
 
         uint256 basefee = _setGasPrice(gasPrice);
@@ -378,7 +387,7 @@ contract ClonableContract is Clonable {
     uint256 public someNumber;
     bytes32 public someData;
 
-    constructor(uint256 _someNumber, bytes32 _someData, uint256 _feeBps) Clonable(_feeBps) {
+    constructor(uint256 _someNumber, bytes32 _someData, CloningConfig memory cloningConfig) Clonable(cloningConfig) {
         _initialize(encodeInitdata(_someNumber, _someData));
     }
 

@@ -30,14 +30,12 @@ abstract contract Clonable is Initializable {
     event Cloned(uint256 collectedFee, address deployedContract);
 
     /// Struct for cloning-related configuration.
-    struct Config {
+    struct CloningConfig {
         /// Contract author, allowed to update cloning configuration.
-        /// @dev Initialized to the deployer address of the original contract.
         address author;
         /// The share of cost savings from cloning to charge as fees, in basis points.
         uint256 feeBps;
         /// The address that should receive cloning fees.
-        /// @dev Initialized to the deployer address of the original contract.
         address feeRecipient;
     }
 
@@ -56,7 +54,7 @@ abstract contract Clonable is Initializable {
     uint256 public constant CLONABLE_ABI_VERSION = 0;
 
     /// Cloning configuration.
-    Config private _config;
+    CloningConfig private _config;
 
     /// Reference to the original contract.
     /// @dev Set once during deployment of the original, accessible from all clones.
@@ -64,12 +62,11 @@ abstract contract Clonable is Initializable {
 
     /**
      * Constructor for the original (non-clone) contract instance.
-     * @dev Initializes contract author and fee recipient addresses to the deployer address.
-     * @param feeBps The fraction of gas savings to charge for cloning this contract, in basis points.
+     * @param config The initial cloning configuration to use.
      */
-    constructor(uint256 feeBps) initializer {
+    constructor(CloningConfig memory config) initializer {
         _original = this;
-        _updateCloningConfig(Config({author: msg.sender, feeBps: feeBps, feeRecipient: msg.sender}));
+        _updateCloningConfig(config);
     }
 
     /**
@@ -77,7 +74,7 @@ abstract contract Clonable is Initializable {
      * @dev This is a wrapper to set up a common interface for initializing clones. Contract-specific initialization should be implemented in the _initialize(bytes) function.
      * @param initdata Contract initialization data, encoded as bytes.
      */
-    function initializeClone(bytes memory initdata) public initializer {
+    function initializeClone(bytes memory initdata) external initializer {
         if (msg.sender != address(_original)) {
             revert OriginalContractOnly();
         }
@@ -96,7 +93,7 @@ abstract contract Clonable is Initializable {
      * Get the cloning configuration for this contract.
      * @dev Can be called on the original contract or any clone.
      */
-    function cloningConfig() public view returns (Config memory) {
+    function cloningConfig() public view returns (CloningConfig memory) {
         if (_isClone()) return _original.cloningConfig();
         return _config;
     }
@@ -150,7 +147,7 @@ abstract contract Clonable is Initializable {
      * Update cloning configuration
      * @dev Callable on the original contract and by the contract author only.
      */
-    function updateCloningConfig(Config memory config) public {
+    function updateCloningConfig(CloningConfig memory config) public {
         if (_isClone()) revert NotCallableOnClones();
         if (msg.sender != _config.author) revert AuthorOnly();
         _updateCloningConfig(config);
@@ -176,7 +173,7 @@ abstract contract Clonable is Initializable {
     /**
      * Internal method for validating and updating cloning configuration.
      */
-    function _updateCloningConfig(Config memory config) private {
+    function _updateCloningConfig(CloningConfig memory config) private {
         if (config.feeBps > CLONING_FEE_BASIS) revert FeeBpsTooHigh();
         _config = config;
     }
