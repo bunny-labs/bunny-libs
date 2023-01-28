@@ -1,8 +1,5 @@
 {
-  "name": "Forge",
-  "build": {
-    "dockerfile": "Dockerfile"
-  },
+  "image": "ghcr.io/bunny-labs/foundry-devcontainer:main",
   "postStartCommand": "git config --global --add safe.directory ${containerWorkspaceFolder}",
   "customizations": {
     "vscode": {
