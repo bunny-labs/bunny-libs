@@ -20,11 +20,17 @@
 
 ## Background
 
-The most expensive on-chain operations are those that store data. This includes the bytecode that is written to the blockchain when deploying smart contracts. While these costs are less significant during periods of low ETH price and little activity, they can be considerable when in the middle of a bull mania.
+The most expensive on-chain operations are those that store data.
+This includes the bytecode that is written to the blockchain when deploying smart contracts.
+While these costs are less significant during periods of low ETH price and little activity, they can be considerable when in the middle of a bull mania.
 
-When deploying a series of functionally identical contracts, the costs can be reduced with very little downside. This is achieved by deploying [minimal proxy contracts (EIP-1167)](https://eips.ethereum.org/EIPS/eip-1167) that delegate their logic to an existing contract on the blockchain instead of duplicating its full bytecode. These contracts are always 45 bytes long, regardless of the size of the original, and therefore much cheaper to deploy. OpenZeppelin provides the [Clones](https://docs.openzeppelin.com/contracts/4.x/api/proxy#Clones) library to do just that.
+When deploying a series of functionally identical contracts, the costs can be reduced with very little downside.
+This is achieved by deploying [minimal proxy contracts (EIP-1167)](https://eips.ethereum.org/EIPS/eip-1167) that delegate their logic to an existing contract on the blockchain instead of duplicating its full bytecode.
+These contracts are always 45 bytes long, regardless of the size of the original, and therefore much cheaper to deploy.
+They are also immutable, provide the full functionality of the original contract and have first-class support on popular blockchain explorers like Etherscan.
 
-`Clonable` takes this a step further by combining all of this in a simple base contract. Developers can add cloning support to any of their contracts by inheriting from `Clonable` and following a few simple implementation guidelines.
+OpenZeppelin provides the [Clones](https://docs.openzeppelin.com/contracts/4.x/api/proxy#Clones) library to deploy these minimal proxies but `Clonable` takes it a step further by implementing the functionality in a simple base contract and adding the option for charging author fees.
+Developers can add cloning support to any of their contracts by inheriting from `Clonable` and following a few simple implementation guidelines.
 
 ## Developers: Implementation guide
 
