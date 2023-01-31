@@ -51,7 +51,7 @@ abstract contract Clonable is Initializable {
 
     /// Version of the `Clonable` base contract ABI in the `<MAJOR>_<MINOR>` format.
     /// @dev Increment `MAJOR` for backwards-incompatible changes and `MINOR` for the rest.
-    uint256 public constant CLONABLE_ABI_VERSION = 0;
+    uint256 public constant CLONABLE_ABI_VERSION = 1_00;
 
     /// Cloning configuration.
     CloningConfig private _config;

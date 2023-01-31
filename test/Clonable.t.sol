@@ -54,7 +54,7 @@ contract ClonableTest is Test {
             feeRecipient: feeRecipient
         }));
 
-        assertEq(original.CLONABLE_ABI_VERSION(), 0);
+        assertEq(original.CLONABLE_ABI_VERSION(), 1_00);
         assertEq(original.isClone(), false);
 
         assertEq(original.cloningConfig().feeBps, feeBps);
