@@ -1,6 +1,6 @@
 {
   "image": "ghcr.io/bunny-labs/foundry-devcontainer:main",
-  "postStartCommand": "git config --global --add safe.directory ${containerWorkspaceFolder}",
+  "postStartCommand": "git config --global --add safe.directory \"*\"",
   "customizations": {
     "vscode": {
       "extensions": ["JuanBlanco.solidity", "esbenp.prettier-vscode"]
