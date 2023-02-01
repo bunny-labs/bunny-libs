@@ -216,18 +216,41 @@ contract ClonableTest is Test {
         ClonableContract(original.clone(abi.encode(3, "")));
     }
 
-    function testCloningFromOriginalEmitsEvent() public {
-        vm.expectEmit(true, false, false, false, address(original));
-        emit Cloned(0, address(0));
-        original.clone(defaultInitdata);
+    function testCloningFromOriginalEmitsEvent(uint8 gasPrice, uint8 feeBps) public {
+        vm.prank(authorAddress);
+        original.updateCloningConfig(
+            Clonable.CloningConfig({
+                author: authorAddress,
+                feeBps: uint256(feeBps) * 10,
+                feeRecipient: feeRecipientAddress
+            })
+        );
+
+        vm.fee(uint256(gasPrice) * 1 gwei);
+        uint256 fee = original.cloningFee();
+
+        vm.expectEmit(false, true, true, false, address(original));
+        emit Cloned(address(0), fee, feeRecipientAddress);
+        original.clone{value: fee}(defaultInitdata);
     }
 
-    function testCloningFromCloneEmitsEvent() public {
+    function testCloningFromCloneEmitsEvent(uint8 gasPrice, uint8 feeBps) public {
+        vm.prank(authorAddress);
+        original.updateCloningConfig(
+            Clonable.CloningConfig({
+                author: authorAddress,
+                feeBps: uint256(feeBps) * 10,
+                feeRecipient: feeRecipientAddress
+            })
+        );
         ClonableContract child = ClonableContract(original.clone(defaultInitdata));
 
-        vm.expectEmit(true, false, false, false, address(original));
-        emit Cloned(0, address(0));
-        child.clone(defaultInitdata);
+        vm.fee(uint256(gasPrice) * 1 gwei);
+        uint256 fee = child.cloningFee();
+
+        vm.expectEmit(false, true, true, false, address(original));
+        emit Cloned(address(0), fee, feeRecipientAddress);
+        child.clone{value: fee}(defaultInitdata);
     }
 
     ////////////////////////////
@@ -357,7 +380,7 @@ contract ClonableTest is Test {
     // Test utils //
     ////////////////
 
-    event Cloned(uint256 fee, address destination);
+    event Cloned(address to, uint256 fee, address feeRecipient);
 
     receive() external payable {}
 

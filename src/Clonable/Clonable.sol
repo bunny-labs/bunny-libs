@@ -27,7 +27,7 @@ abstract contract Clonable is Initializable {
     error OriginalContractOnly();
 
     /// Emitted when a new clone is deployed.
-    event Cloned(uint256 collectedFee, address deployedContract);
+    event Cloned(address to, uint256 fee, address feeRecipient);
 
     /// Struct for cloning-related configuration.
     struct CloningConfig {
@@ -138,7 +138,7 @@ abstract contract Clonable is Initializable {
             (bool success,) = _config.feeRecipient.call{value: collectedFee}("");
             if (!success) revert FeeTransferFailed();
 
-            emit Cloned(collectedFee, cloneAddress);
+            emit Cloned(cloneAddress, collectedFee, _config.feeRecipient);
             return cloneAddress;
         }
     }
