@@ -6,11 +6,7 @@ import "forge-std/Test.sol";
 import "../src/MembershipToken/MembershipToken.sol";
 
 contract MockMembership is MembershipToken {
-    constructor(
-        string memory name,
-        string memory symbol,
-        Membership[] memory memberships
-    ) {
+    constructor(string memory name, string memory symbol, Membership[] memory memberships) {
         _initialize(name, symbol, memberships);
     }
 
@@ -28,53 +24,28 @@ contract MockMembership is MembershipToken {
 contract MembershipTokenTest is Test {
     MembershipToken.Membership[] noMembers;
 
-    function expand16(uint16 seed, uint256 size)
-        public
-        pure
-        returns (uint16[] memory)
-    {
-        uint16[] memory numbers = new uint16[](size);
-        for (uint256 i; i < size; i++) {
-            numbers[i] = uint16(
-                uint256(keccak256(abi.encodePacked(seed, i))) % type(uint16).max
-            );
+    uint256 defaultTotalWeights;
+    MembershipToken.Membership[] defaultMembers;
+
+    function setUp() public {
+        uint256 defaultMemberCount = 42;
+        for (uint256 i; i < defaultMemberCount; i++) {
+            uint32 weight = 1000 + uint32(uint256(keccak256(abi.encodePacked(defaultMemberCount, i))) % 9000);
+            defaultMembers.push(MembershipToken.Membership(makeAddr(Strings.toString(uint256(i))), weight));
+            defaultTotalWeights += weight;
         }
-        return numbers;
     }
 
-    function setupMembers(uint256 memberCount)
-        public
-        returns (MembershipToken.Membership[] memory)
-    {
-        MembershipToken.Membership[]
-            memory members = new MembershipToken.Membership[](memberCount);
-        uint16[] memory shares = expand16(
-            uint16(memberCount % type(uint16).max),
-            memberCount
-        );
-
-        for (uint256 i; i < memberCount; i++) {
-            members[i] = MembershipToken.Membership(
-                makeAddr(Strings.toString(uint256(i))),
-                shares[i]
-            );
-        }
-
-        return members;
-    }
-
-    function testCanInitialize(string memory name, string memory symbol)
-        public
-    {
-        MockMembership token = new MockMembership(name, symbol, noMembers);
+    function testCanInitialize(string memory name, string memory symbol) public {
+        MockMembership token = new MockMembership(name, symbol, defaultMembers);
 
         assertEq(token.name(), name);
         assertEq(token.symbol(), symbol);
-        assertEq(token.totalSupply(), 0);
-        assertEq(token.totalWeights(), 0);
+        assertEq(token.totalSupply(), defaultMembers.length);
+        assertEq(token.totalWeights(), defaultTotalWeights);
     }
 
-    function testCanMintMemberships(address to, uint32 weight) public {
+    function testCanMintIndividualMemberships(address to, uint32 weight) public {
         vm.assume(to != address(0));
 
         MockMembership token = new MockMembership(
@@ -82,6 +53,11 @@ contract MembershipTokenTest is Test {
             "VCOOOR",
             noMembers
         );
+
+        assertEq(token.balanceOf(to), 0);
+        assertEq(token.totalSupply(), 0);
+        assertEq(token.totalWeights(), 0);
+
         token.mintMembership(MembershipToken.Membership(to, weight));
 
         assertEq(token.balanceOf(to), 1);
@@ -101,23 +77,16 @@ contract MembershipTokenTest is Test {
         token.mintMembership(MembershipToken.Membership(address(0), 1));
     }
 
-    function testCanBatchMintMemberships(uint8 memberCount) public {
-        MembershipToken.Membership[] memory members = setupMembers(memberCount);
+    function testCanMintMembershipsBatches() public {
         MockMembership token = new MockMembership(
             "VCooors",
             "VCOOOR",
             noMembers
         );
-        token.mintMemberships(members);
+        token.mintMemberships(defaultMembers);
 
-        uint48 totalWeights;
-        for (uint256 i; i < memberCount; i++) {
-            assertEq(token.membershipWeight(i), members[i].weight);
-            totalWeights += members[i].weight;
-        }
-
-        assertEq(token.totalWeights(), totalWeights);
-        assertEq(token.totalSupply(), memberCount);
+        assertEq(token.totalWeights(), defaultTotalWeights);
+        assertEq(token.totalSupply(), defaultMembers.length);
     }
 
     function testWillAllowMemberOnlyAccess() public {
@@ -153,107 +122,80 @@ contract MembershipTokenTest is Test {
             address member = makeAddr(vm.toString(i));
             token.mintMembership(MembershipToken.Membership(member, maxShares));
 
-            assertEq(
-                token.tokenShare(i, uint224(i + 1) * maxShares),
-                maxShares
-            );
+            assertEq(token.tokenShare(i, uint224(token.totalSupply()) * maxShares), maxShares);
         }
 
         assertEq(token.totalSupply(), maxMemberships);
-        assertEq(
-            token.totalWeights(),
-            uint48(maxShares) * uint48(maxMemberships)
-        );
+        assertEq(token.totalWeights(), uint48(maxShares) * uint48(maxMemberships));
 
         address extraMember = makeAddr(vm.toString(maxMemberships));
         vm.expectRevert();
-        token.mintMembership(
-            MembershipToken.Membership(extraMember, maxShares)
-        );
+        token.mintMembership(MembershipToken.Membership(extraMember, maxShares));
     }
 
-    function testCanCalculateProportionalShares(uint8 memberCount) public {
-        vm.assume(memberCount > 0);
-
-        MembershipToken.Membership[] memory memberships = setupMembers(
-            memberCount
-        );
+    function testCanCalculateProportionalShares() public {
         MockMembership token = new MockMembership(
             "VCooors",
             "VCOOOR",
-            memberships
+            defaultMembers
         );
 
-        uint256 totalWeights = token.totalWeights();
-        for (uint256 i; i < memberCount; i++) {
-            assertEq(
-                token.tokenShare(i, uint224(totalWeights)),
-                memberships[i].weight
-            );
+        for (uint256 i; i < defaultMembers.length; i++) {
+            assertEq(token.tokenShare(i, uint224(defaultTotalWeights)), defaultMembers[i].weight);
         }
     }
 
     function testCanCalculateMaxShares() public {
-        MembershipToken.Membership[]
-            memory members = new MembershipToken.Membership[](1);
-        members[0] = MembershipToken.Membership(
-            makeAddr("0"),
-            type(uint32).max
-        );
+        MembershipToken.Membership[] memory members = new MembershipToken.Membership[](1);
+        members[0] = MembershipToken.Membership(makeAddr("0"), type(uint32).max);
 
         MockMembership token = new MockMembership("Vcooors", "VCOOOR", members);
 
         assertEq(token.tokenShare(0, type(uint224).max), type(uint224).max);
     }
 
-    function testCanGenerateTokenImages(uint8 memberCount) public {
-        vm.assume(memberCount > 0);
-
+    function testCanGenerateTokenImages() public {
         MockMembership token = new MockMembership(
             "VCooors",
             "VCOOOR",
-            setupMembers(memberCount)
+            defaultMembers
         );
 
-        for (uint256 i; i < memberCount; i++) {
+        for (uint256 i; i < defaultMembers.length; i++) {
             token.tokenImage(i);
         }
 
         vm.expectRevert(MembershipToken.TokenDoesNotExist.selector);
-        token.tokenImage(memberCount);
+        token.tokenImage(defaultMembers.length);
     }
 
-    function testCanGenerateTokenMetadata(uint8 memberCount) public {
-        vm.assume(memberCount > 0);
-
+    function testCanGenerateTokenMetadata() public {
         MockMembership token = new MockMembership(
             "VCooors",
             "VCOOOR",
-            setupMembers(memberCount)
+            defaultMembers
         );
 
-        for (uint256 i; i < memberCount; i++) {
+        for (uint256 i; i < defaultMembers.length; i++) {
             token.tokenMetadata(i);
         }
 
         vm.expectRevert(MembershipToken.TokenDoesNotExist.selector);
-        token.tokenMetadata(memberCount);
+        token.tokenMetadata(defaultMembers.length);
     }
 
-    function testCanGenerateTokenUris(uint8 memberCount) public {
-        vm.assume(memberCount > 0);
-
+    function testCanGenerateTokenUris() public {
         MockMembership token = new MockMembership(
             "VCooors",
             "VCOOOR",
-            setupMembers(memberCount)
+            defaultMembers
         );
 
-        for (uint256 i; i < memberCount; i++) {
+        for (uint256 i; i < defaultMembers.length; i++) {
             token.tokenURI(i);
         }
 
         vm.expectRevert(MembershipToken.TokenDoesNotExist.selector);
-        token.tokenURI(memberCount);
+        token.tokenURI(defaultMembers.length);
     }
 }

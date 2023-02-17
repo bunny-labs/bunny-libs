@@ -57,21 +57,45 @@ abstract contract MembershipToken is ERC721("", "") {
     function tokenImage(uint256 tokenId) public view returns (string memory) {
         if (tokenId >= totalSupply) revert TokenDoesNotExist();
 
-        return string(
+        string memory image =
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><rect width="80" height="80" /><g stroke-width="24" fill="none">';
+
+        uint256 covered;
+        for (uint256 i; i < totalSupply; i++) {
+            uint256 share = tokenShare(i, totalWeights);
+            image = string(
+                abi.encodePacked(
+                    image,
+                    '<circle stroke="hsl(',
+                    Strings.toString(360 / totalSupply * i),
+                    ",",
+                    i == tokenId ? "100" : "30",
+                    '%,50%)" r="12" cx="50%" cy="50%" stroke-dasharray="calc(',
+                    Strings.toString(share),
+                    " * 100 / ",
+                    Strings.toString(totalWeights),
+                    ') 100" transform="rotate(',
+                    Strings.toString(covered * 360 / totalWeights),
+                    ' 40 40)"/>'
+                )
+            );
+            covered += share;
+        }
+
+        image = string(
             abi.encodePacked(
-                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><g><rect width="80" height="80" /><g stroke-width="16" fill="none"><circle stroke="white" r="15.9" cx="50%" cy="50%"/><circle stroke="hsl(',
-                Strings.toString(_prngInRange(tokenId, 360)),
-                ',100%,69%)" r="15.9" cx="50%" cy="50%" stroke-dasharray="',
-                Strings.toString(tokenShare(tokenId, 100)),
-                ' 100" stroke-dashoffset="0" transform="rotate(-90 40 40)" /></g><g font-family="monospace" text-anchor="middle" font-size="6" fill="white"><text x="50%" y="13%">',
+                image,
+                '</g><g font-family="monospace" text-anchor="middle" fill="white"><text x="50%" y="13%" font-size="6">',
                 name,
-                '</text><text x="50%" y="52%">#',
+                " #",
                 Strings.toString(tokenId),
-                '</text><text x="50%" y="92%">',
+                '</text><text x="50%" y="93%" font-size="8">',
                 Strings.toString(membershipWeight[tokenId]),
-                "</text></g></g></svg>"
+                "</text></g></svg>"
             )
         );
+
+        return image;
     }
 
     /**
@@ -148,15 +172,6 @@ abstract contract MembershipToken is ERC721("", "") {
         for (uint256 i = 0; i < membershipCount; i++) {
             _mintMembership(memberships[i]);
         }
-    }
-
-    /**
-     * @dev Generate a randomish number in a range based on a token ID.
-     * @param tokenId Token ID were using to generate the number.
-     * @param range The range that the result needs to be in.
-     */
-    function _prngInRange(uint256 tokenId, uint256 range) internal view returns (uint256) {
-        return uint256(keccak256(abi.encodePacked(name, symbol, tokenId))) % range;
     }
 
     /**
