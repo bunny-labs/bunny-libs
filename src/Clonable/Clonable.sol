@@ -11,6 +11,10 @@ import "openzeppelin-contracts/proxy/utils/Initializable.sol";
  */
 
 abstract contract Clonable is Initializable {
+    //*******//
+    // Types //
+    //*******//
+
     /// Thrown when `feeBps` is set to >100%.
     error FeeBpsTooHigh();
     /// Thrown when functions that are meant to be called by the contract author are called by third parties.
@@ -39,6 +43,10 @@ abstract contract Clonable is Initializable {
         address feeRecipient;
     }
 
+    //***********//
+    // Variables //
+    //***********//
+
     /// Size of the minimal proxy bytecode deployed for clones, in bytes.
     uint256 constant CLONE_CODE_SIZE = 45;
 
@@ -51,7 +59,7 @@ abstract contract Clonable is Initializable {
 
     /// Version of the `Clonable` base contract ABI in the `<MAJOR>_<MINOR>` format.
     /// @dev Increment `MAJOR` for backwards-incompatible changes and `MINOR` for the rest.
-    uint256 public constant CLONABLE_ABI_VERSION = 1_00;
+    uint256 public constant CLONABLE_ABI_VERSION = 1_01;
 
     /// Cloning configuration.
     CloningConfig private _config;
@@ -59,6 +67,10 @@ abstract contract Clonable is Initializable {
     /// Reference to the original contract.
     /// @dev Set once during deployment of the original, accessible from all clones.
     Clonable private immutable _original;
+
+    //****************//
+    // Initialization //
+    //****************//
 
     /**
      * Constructor for the original (non-clone) contract instance.
@@ -89,6 +101,10 @@ abstract contract Clonable is Initializable {
      */
     function _initialize(bytes memory initdata) internal virtual;
 
+    //****************//
+    // View functions //
+    //****************//
+
     /**
      * Get the cloning configuration for this contract.
      * @dev Can be called on the original contract or any clone.
@@ -112,35 +128,36 @@ abstract contract Clonable is Initializable {
         return (((costSavings * cloningConfig().feeBps) / 1 gwei) * 1 gwei) / CLONING_FEE_BASIS;
     }
 
+    //*********//
+    // Cloning //
+    //*********//
+
     /**
      * Deploy a clone of this contract.
      * @param initdata Contract initialization data, encoded as bytes.
      */
     function clone(bytes memory initdata) public payable returns (address) {
         uint256 collectedFee = cloningFee();
+        _preCloningHook(collectedFee);
 
-        // This block executes both in cloned and original contract contexts
-        {
-            // Check msg.value and issue a refund (if needed) as the first thing.
-            // This way we can just refund msg.sender and don't have to pass caller
-            // to the original contract.
-            if (msg.value < collectedFee) revert MsgValueTooLow();
-            if (msg.value > collectedFee) _refundExcess(collectedFee);
+        if (_isClone()) return _original.clone{value: collectedFee}(initdata);
+        address cloneAddress = Clones.clone(address(_original));
 
-            if (_isClone()) return _original.clone{value: collectedFee}(initdata);
-        }
+        return _postCloningHook(cloneAddress, initdata, collectedFee);
+    }
 
-        // This block executes only in original contract contexts
-        {
-            address cloneAddress = Clones.clone(address(_original));
-            Clonable(cloneAddress).initializeClone(initdata);
+    /**
+     * Deploy a clone of this contract with a deterministic address.
+     * @param initdata Contract initialization data, encoded as bytes.
+     */
+    function cloneDeterministic(bytes memory initdata, bytes32 salt) public payable returns (address) {
+        uint256 collectedFee = cloningFee();
+        _preCloningHook(collectedFee);
 
-            (bool success,) = _config.feeRecipient.call{value: collectedFee}("");
-            if (!success) revert FeeTransferFailed();
+        if (_isClone()) return _original.cloneDeterministic{value: collectedFee}(initdata, salt);
+        address cloneAddress = Clones.cloneDeterministic(address(_original), salt);
 
-            emit Cloned(cloneAddress, collectedFee, _config.feeRecipient);
-            return cloneAddress;
-        }
+        return _postCloningHook(cloneAddress, initdata, collectedFee);
     }
 
     /**
@@ -151,6 +168,41 @@ abstract contract Clonable is Initializable {
         if (_isClone()) revert NotCallableOnClones();
         if (msg.sender != _config.author) revert AuthorOnly();
         _updateCloningConfig(config);
+    }
+
+    //***********//
+    // Internals //
+    //***********//
+
+    /**
+     * @dev This hook executes before cloning both in cloned and original contract contexts.
+     * @param collectedFee The fee that will get charged for deploying the clone.
+     */
+    function _preCloningHook(uint256 collectedFee) internal {
+        // Check msg.value and issue a refund (if needed) as the first thing.
+        // This way we can just refund msg.sender and don't have to pass caller
+        // to the original contract.
+        if (msg.value < collectedFee) revert MsgValueTooLow();
+        if (msg.value > collectedFee) _refundExcess(collectedFee);
+    }
+
+    /**
+     * @dev This hook executes after clonign and only in original contract contexts.
+     * @param cloneAddress The address of the clone that was created.
+     * @param initdata The initialization data that should be forwarded to the newly created clone.
+     * @param collectedFee The fee that was charged for deploying the clone.
+     */
+    function _postCloningHook(address cloneAddress, bytes memory initdata, uint256 collectedFee)
+        internal
+        returns (address)
+    {
+        Clonable(cloneAddress).initializeClone(initdata);
+
+        (bool success,) = _config.feeRecipient.call{value: collectedFee}("");
+        if (!success) revert FeeTransferFailed();
+
+        emit Cloned(cloneAddress, collectedFee, _config.feeRecipient);
+        return cloneAddress;
     }
 
     /**

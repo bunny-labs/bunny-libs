@@ -54,7 +54,7 @@ contract ClonableTest is Test {
             feeRecipient: feeRecipient
         }));
 
-        assertEq(original.CLONABLE_ABI_VERSION(), 1_00);
+        assertEq(original.CLONABLE_ABI_VERSION(), 1_01);
         assertEq(original.isClone(), false);
 
         assertEq(original.cloningConfig().feeBps, feeBps);
@@ -186,6 +186,23 @@ contract ClonableTest is Test {
         assertEq(child.someNumber(), someNumber);
     }
 
+    function testOriginalCanBeClonedWithSalt(uint256 someNumber, bytes32 someData, bytes32 salt) public {
+        vm.assume(someNumber > 10);
+
+        ClonableContract child = ClonableContract(original.cloneDeterministic(abi.encode(someNumber, someData), salt));
+
+        assertEq(child.isClone(), true);
+        assertEq(child.someData(), someData);
+        assertEq(child.someNumber(), someNumber);
+    }
+
+    function testDeterministicCloningCannotReuseSalt() public {
+        ClonableContract(original.cloneDeterministic(defaultInitdata, 0x0));
+
+        vm.expectRevert();
+        ClonableContract(original.cloneDeterministic(defaultInitdata, 0x0));
+    }
+
     function testCloningCallsOriginalContract() public {
         ClonableContract child = ClonableContract(original.clone(defaultInitdata));
 
@@ -193,11 +210,29 @@ contract ClonableTest is Test {
         child.clone(defaultInitdata);
     }
 
+    function testDeterministicCloningCallsOriginalContract() public {
+        ClonableContract child = ClonableContract(original.cloneDeterministic(defaultInitdata, bytes32("child")));
+
+        vm.expectCall(address(original), 0, abi.encodeCall(original.cloneDeterministic, (defaultInitdata, 0x0)));
+        child.cloneDeterministic(defaultInitdata, 0x0);
+    }
+
     function testCloneCanBeCloned(uint256 someNumber, bytes32 someData) public {
         vm.assume(someNumber > 10);
 
         ClonableContract child = ClonableContract(original.clone(defaultInitdata));
         ClonableContract grandchild = ClonableContract(child.clone(abi.encode(someNumber, someData)));
+
+        assertEq(grandchild.isClone(), true);
+        assertEq(grandchild.someData(), someData);
+        assertEq(grandchild.someNumber(), someNumber);
+    }
+
+    function testCloneCanBeClonedWithSalt(uint256 someNumber, bytes32 someData, bytes32 salt) public {
+        vm.assume(someNumber > 10);
+
+        ClonableContract child = ClonableContract(original.clone(defaultInitdata));
+        ClonableContract grandchild = ClonableContract(child.cloneDeterministic(abi.encode(someNumber, someData), salt));
 
         assertEq(grandchild.isClone(), true);
         assertEq(grandchild.someData(), someData);
