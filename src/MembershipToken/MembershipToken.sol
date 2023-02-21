@@ -58,7 +58,7 @@ abstract contract MembershipToken is ERC721("", "") {
         if (tokenId >= totalSupply) revert TokenDoesNotExist();
 
         string memory image =
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><rect width="80" height="80" /><g stroke-width="24" fill="none">';
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><style>@media(prefers-color-scheme:light){rect{fill:white;}text{fill:black;}circle{filter:saturate(130%);}}</style><rect width="80" height="80" fill="black"/><defs><filter id="glow" width="150%" height="150%" x="-25%" y="-25%"><feGaussianBlur stdDeviation="0.5" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><g stroke-width="16" fill="none" filter="url(#glow)">';
 
         uint256 covered;
         for (uint256 i; i < totalSupply; i++) {
@@ -66,17 +66,26 @@ abstract contract MembershipToken is ERC721("", "") {
             image = string(
                 abi.encodePacked(
                     image,
-                    '<circle stroke="hsl(',
+                    '<circle r="12" cx="50%" cy="50%"  style="transform-origin:40px 40px;stroke:hsl(',
                     Strings.toString(360 / totalSupply * i),
                     ",",
-                    i == tokenId ? "100" : "30",
-                    '%,50%)" r="12" cx="50%" cy="50%" stroke-dasharray="calc(',
-                    Strings.toString(share),
-                    " * 100 / ",
+                    i == tokenId ? "100" : "50",
+                    "%,50%);stroke-dasharray:calc(",
+                    Strings.toString(share)
+                )
+            );
+            image = string(
+                abi.encodePacked(
+                    image,
+                    " * calc(2*3.14*12) / ",
                     Strings.toString(totalWeights),
-                    ') 100" transform="rotate(',
-                    Strings.toString(covered * 360 / totalWeights),
-                    ' 40 40)"/>'
+                    ") calc(2*3.14*12);transform:rotate(calc(",
+                    Strings.toString(covered),
+                    " * 360deg / ",
+                    Strings.toString(totalWeights),
+                    '));"',
+                    i == tokenId ? ' stroke-width="24"' : "",
+                    "/>"
                 )
             );
             covered += share;
