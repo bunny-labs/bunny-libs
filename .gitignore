@@ -17,3 +17,6 @@ report/
 
 # Docs
 docs/
+
+# Test outputs
+test/output/

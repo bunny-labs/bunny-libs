@@ -162,7 +162,7 @@ contract MembershipTokenTest is Test {
         );
 
         for (uint256 i; i < defaultMembers.length; i++) {
-            token.tokenImage(i);
+            vm.writeFile(string(abi.encodePacked("./test/output/", vm.toString(i), ".svg")), token.tokenImage(i));
         }
 
         vm.expectRevert(MembershipToken.TokenDoesNotExist.selector);
